@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>尺寸標籤批次產生器 (台尺版)</title>
+    <title>台尺標籤</title>
 
     <style id="dynamic-page-size">
         @page {
@@ -426,7 +426,7 @@
 <body>
 
 <div class="card">
-    <div class="title">標籤產生器 (台尺專用)</div>
+    <div class="title">台尺標籤</div>
 
     <!-- 尺寸輸入 -->
     <div class="input-group">
@@ -530,7 +530,7 @@
     const batchPrintContainer = document.getElementById('batch-print-container');
 
     let batchItems = [];
-    let editIndex = -1; // 記錄目前正在編輯的標籤索引
+    let editIndex = -1; 
 
     function resetEditMode() {
         editIndex = -1;
@@ -539,7 +539,6 @@
         btnAdd.style.backgroundColor = '#ff9500';
     }
 
-    // 2. 將下拉選單鎖洞箭頭改成實心三角形 ▲ / ▼
     const dropdownOptions = [
         "+料", "柳安", "左右封邊", "四邊封邊", "+鎖洞▲", "+鎖洞▼", "+岩棉", "+洞", 
         "組裝五金-喇房", "組裝五金-喇廁", "組裝五金-水房", "組裝五金-水廁", "烤雕", 
@@ -692,7 +691,6 @@
         }
     }
 
-    // 取得指定列的下拉選單所有選取值
     function getSelects(line) {
         return Array.from(document.querySelectorAll(`#select-container-${line} input`))
             .map(inp => inp.value.trim())
@@ -710,7 +708,6 @@
         const line2Fs = autoFitRight(document.getElementById('label-wrapper-2'));
         const line3Fs = autoFitRight(document.getElementById('label-wrapper-3'));
 
-        // 分開儲存「手動輸入的部分」與「下拉選單陣列」，以便編輯時能還原結構
         const newItem = {
             vendor: vendor || '廠商名稱',
             line1: line1,
@@ -741,11 +738,9 @@
         const item = batchItems[index];
         editIndex = index;
 
-        // 載入預覽區內容
         previewVendor.innerText = item.vendor;
         labelItem1.innerText = item.line1;
         
-        // 1. 還原細項二的手動文字與下拉選單結構
         document.getElementById('label-item-2').innerText = item.line2Text !== undefined ? item.line2Text : (item.line2 || '');
         document.getElementById('select-container-2').innerHTML = '';
         if (item.line2Selects) {
@@ -757,7 +752,6 @@
         }
         updateLabelFromSelects(2);
 
-        // 1. 還原細項三的手動文字與下拉選單結構
         document.getElementById('label-item-3').innerText = item.line3Text !== undefined ? item.line3Text : (item.line3 || '');
         document.getElementById('select-container-3').innerHTML = '';
         if (item.line3Selects) {
@@ -769,17 +763,14 @@
         }
         updateLabelFromSelects(3);
 
-        // 重算大小
         autoFitLeft(previewVendor);
         autoFitRight(labelItem1);
         autoFitRight(document.getElementById('label-wrapper-2'));
         autoFitRight(document.getElementById('label-wrapper-3'));
 
-        // 清空尺寸輸入框避免衝突
         heightInput.value = '';
         widthInput.value = '';
 
-        // 按鈕切換為儲存狀態
         const btnAdd = document.querySelector('.btn-add');
         btnAdd.innerText = '儲存修改';
         btnAdd.style.backgroundColor = '#007aff';
@@ -896,8 +887,9 @@
 
     function printSingle() {
         batchPrintContainer.innerHTML = '';
+        const vendorText = getCleanText(previewVendor) || '廠商名稱';
         const item = {
-            vendor: getCleanText(previewVendor) || '廠商名稱',
+            vendor: vendorText,
             line1: getCleanText(labelItem1),
             line2: getCleanText(document.getElementById('label-wrapper-2')),
             line3: getCleanText(document.getElementById('label-wrapper-3')),
@@ -909,6 +901,9 @@
 
         const pageDiv = createPrintPage(item);
         batchPrintContainer.appendChild(pageDiv);
+        
+        // 變更標題以作為 PDF 預設檔名
+        document.title = vendorText;
         window.print();
     }
 
@@ -922,6 +917,18 @@
             const pageDiv = createPrintPage(item);
             batchPrintContainer.appendChild(pageDiv);
         });
+
+        // 判斷批次清單中的廠商名稱，若皆相同則使用該廠商名稱，否則使用「多廠商」
+        const vendorSet = new Set(batchItems.map(item => item.vendor));
+        let printTitle = '台尺標籤';
+        if (vendorSet.size === 1) {
+            printTitle = batchItems[0].vendor + '_批次標籤';
+        } else {
+            printTitle = '多廠商_批次標籤';
+        }
+        
+        // 變更標題以作為 PDF 預設檔名
+        document.title = printTitle;
         window.print();
     }
 
@@ -945,6 +952,8 @@
 
     window.addEventListener('afterprint', () => {
         batchPrintContainer.innerHTML = '';
+        // 列印完成後，將網頁標題恢復
+        document.title = '台尺標籤';
     });
 </script>
 </body>
