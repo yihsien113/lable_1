@@ -283,7 +283,6 @@
             justify-content: center;
         }
 
-        /* 修正此處讓動態與手動內容組合時完美置中 */
         .auto-fit-right {
             padding: 0 4px;
             cursor: text;
@@ -369,6 +368,38 @@
         .btn-batch-print:hover { background-color: #0056b3; }
 
         #batch-print-container { display: none; }
+
+        /* ========================================
+           編輯功能相關樣式
+           ======================================== */
+        .batch-item.editing {
+            border: 2px solid #007aff;
+            background-color: #f0f7ff;
+        }
+
+        .batch-item-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .btn-edit {
+            color: #007aff;
+            background: none;
+            border: 1px solid #007aff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-edit:hover {
+            background-color: #007aff;
+            color: #fff;
+        }
 
         /* ========================================
            PRINT 樣式
@@ -499,9 +530,18 @@
     const batchPrintContainer = document.getElementById('batch-print-container');
 
     let batchItems = [];
+    let editIndex = -1; // 記錄目前正在編輯的標籤索引
 
+    function resetEditMode() {
+        editIndex = -1;
+        const btnAdd = document.querySelector('.btn-add');
+        btnAdd.innerText = '加入批次清單';
+        btnAdd.style.backgroundColor = '#ff9500';
+    }
+
+    // 2. 將下拉選單鎖洞箭頭改成實心三角形 ▲ / ▼
     const dropdownOptions = [
-        "+料", "柳安", "左右封邊", "四邊封邊", "+鎖洞↑", "+鎖洞↓", "+岩棉", "+洞", 
+        "+料", "柳安", "左右封邊", "四邊封邊", "+鎖洞▲", "+鎖洞▼", "+岩棉", "+洞", 
         "組裝五金-喇房", "組裝五金-喇廁", "組裝五金-水房", "組裝五金-水廁", "烤雕", 
         "幸福牌丁雙", "雷克拉丁雙", "內左", "內右", "外左", "外右"
     ];
@@ -573,6 +613,9 @@
         autoFitRight(labelItem1);
         autoFitRight(document.getElementById('label-wrapper-2'));
         autoFitRight(document.getElementById('label-wrapper-3'));
+
+        resetEditMode();
+        updateBatchUI();
 
         heightInput.focus();
     }
@@ -649,6 +692,13 @@
         }
     }
 
+    // 取得指定列的下拉選單所有選取值
+    function getSelects(line) {
+        return Array.from(document.querySelectorAll(`#select-container-${line} input`))
+            .map(inp => inp.value.trim())
+            .filter(v => v !== '');
+    }
+
     function addToBatch() {
         const vendor = getCleanText(previewVendor);
         const line1 = getCleanText(labelItem1);
@@ -660,19 +710,82 @@
         const line2Fs = autoFitRight(document.getElementById('label-wrapper-2'));
         const line3Fs = autoFitRight(document.getElementById('label-wrapper-3'));
 
-        batchItems.push({
+        // 分開儲存「手動輸入的部分」與「下拉選單陣列」，以便編輯時能還原結構
+        const newItem = {
             vendor: vendor || '廠商名稱',
             line1: line1,
             line2: line2,
             line3: line3,
+            line2Text: getCleanText(document.getElementById('label-item-2')),
+            line3Text: getCleanText(document.getElementById('label-item-3')),
+            line2Selects: getSelects(2),
+            line3Selects: getSelects(3),
             vendorFs: vendorFs,
             line1Fs: line1Fs,
             line2Fs: line2Fs,
             line3Fs: line3Fs
-        });
+        };
+
+        if (editIndex !== -1) {
+            batchItems[editIndex] = newItem;
+            resetEditMode();
+        } else {
+            batchItems.push(newItem);
+        }
 
         updateBatchUI();
         heightInput.select();
+    }
+
+    function editBatchItem(index) {
+        const item = batchItems[index];
+        editIndex = index;
+
+        // 載入預覽區內容
+        previewVendor.innerText = item.vendor;
+        labelItem1.innerText = item.line1;
+        
+        // 1. 還原細項二的手動文字與下拉選單結構
+        document.getElementById('label-item-2').innerText = item.line2Text !== undefined ? item.line2Text : (item.line2 || '');
+        document.getElementById('select-container-2').innerHTML = '';
+        if (item.line2Selects) {
+            item.line2Selects.forEach(val => {
+                addSelect(2);
+                const inputs = document.querySelectorAll(`#select-container-2 input`);
+                inputs[inputs.length - 1].value = val;
+            });
+        }
+        updateLabelFromSelects(2);
+
+        // 1. 還原細項三的手動文字與下拉選單結構
+        document.getElementById('label-item-3').innerText = item.line3Text !== undefined ? item.line3Text : (item.line3 || '');
+        document.getElementById('select-container-3').innerHTML = '';
+        if (item.line3Selects) {
+            item.line3Selects.forEach(val => {
+                addSelect(3);
+                const inputs = document.querySelectorAll(`#select-container-3 input`);
+                inputs[inputs.length - 1].value = val;
+            });
+        }
+        updateLabelFromSelects(3);
+
+        // 重算大小
+        autoFitLeft(previewVendor);
+        autoFitRight(labelItem1);
+        autoFitRight(document.getElementById('label-wrapper-2'));
+        autoFitRight(document.getElementById('label-wrapper-3'));
+
+        // 清空尺寸輸入框避免衝突
+        heightInput.value = '';
+        widthInput.value = '';
+
+        // 按鈕切換為儲存狀態
+        const btnAdd = document.querySelector('.btn-add');
+        btnAdd.innerText = '儲存修改';
+        btnAdd.style.backgroundColor = '#007aff';
+
+        updateBatchUI();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function updateBatchUI() {
@@ -681,7 +794,7 @@
 
         batchItems.forEach((item, index) => {
             const div = document.createElement('div');
-            div.className = 'batch-item';
+            div.className = index === editIndex ? 'batch-item editing' : 'batch-item';
 
             const line2Display = item.line2 ? ` / ${item.line2}` : '';
             const line3Display = item.line3 ? ` / ${item.line3}` : '';
@@ -694,7 +807,10 @@
                     ${line2Display}
                     ${line3Display}
                 </span>
-                <button class="btn-remove" onclick="removeBatchItem(${index})" title="刪除這張">✕</button>
+                <div class="batch-item-actions">
+                    <button class="btn-edit" onclick="editBatchItem(${index})" title="載入上方預覽區編輯">編輯</button>
+                    <button class="btn-remove" onclick="removeBatchItem(${index})" title="刪除這張">✕</button>
+                </div>
             `;
             batchListContainer.appendChild(div);
         });
@@ -712,12 +828,20 @@
     function removeBatchItem(index) {
         if (index < 0 || index >= batchItems.length) return;
         batchItems.splice(index, 1);
+        
+        if (editIndex === index) {
+            resetEditMode();
+        } else if (editIndex > index) {
+            editIndex--;
+        }
+
         updateBatchUI();
     }
 
     function clearBatch() {
         if (batchItems.length === 0) return;
         batchItems = [];
+        resetEditMode();
         updateBatchUI();
     }
 
